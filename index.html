@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบแจ้งซ่อมเครื่องจักร</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+:root{
+  --bg:#0d1117;--surface:#161b22;--s2:#1c2330;--border:#30363d;
+  --accent:#f78166;--a2:#ffa657;--green:#3fb950;--blue:#58a6ff;
+  --purple:#bc8cff;--red:#ff6b6b;--yellow:#e3b341;
+  --text:#e6edf3;--muted:#8b949e;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min-height:100vh}
+/* HEADER */
+header{background:var(--surface);border-bottom:2px solid var(--accent);padding:12px 16px;display:flex;align-items:center;gap:11px;position:sticky;top:0;z-index:200}
+.hico{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--a2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+header h1{font-size:16px;font-weight:700}
+header p{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+#live-time{margin-left:auto;background:rgba(247,129,102,.12);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 9px;border-radius:20px;white-space:nowrap}
+/* TABS */
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:62px;z-index:99}
+.tb{flex:1;padding:11px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Sarabun',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
+.tb.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(247,129,102,.05)}
+.tc{display:none}.tc.active{display:block}
+/* LAYOUT */
+.wrap{max-width:720px;margin:0 auto;padding:16px 12px 50px;display:flex;flex-direction:column;gap:14px}
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ch{padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px}
+.sn{width:21px;height:21px;background:var(--accent);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Mono',monospace}
+.ch .t{font-size:13px;font-weight:600}
+.cb{padding:12px}
+/* MACHINE CHIPS */
+.mgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.chip{background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:10px 11px;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:7px;user-select:none;-webkit-tap-highlight-color:transparent}
+.chip:hover{border-color:var(--accent);background:rgba(247,129,102,.07)}
+.chip.sel{border-color:var(--accent);background:rgba(247,129,102,.16);box-shadow:0 0 0 2px rgba(247,129,102,.17)}
+.chip .ico{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.chip .lbl{font-size:13px;font-weight:600}
+.chip.sel .lbl{color:var(--accent)}
+/* UNIT BTNS */
+.urow{display:flex;gap:7px;flex-wrap:wrap}
+.ubtn{flex:1;min-width:58px;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:10px 4px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .14s;text-align:center;-webkit-tap-highlight-color:transparent;line-height:1.2}
+.ubtn:hover{border-color:var(--blue);background:rgba(88,166,255,.07)}
+.ubtn.sel{border-color:var(--blue);background:rgba(88,166,255,.18);color:var(--blue);box-shadow:0 0 0 2px rgba(88,166,255,.13)}
+/* INPUTS */
+textarea,input[type=text],input[type=password]{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:14px;outline:none;transition:border-color .14s}
+textarea{resize:vertical;min-height:85px}
+textarea:focus,input[type=text]:focus,input[type=password]:focus{border-color:var(--accent)}
+textarea::placeholder,input::placeholder{color:var(--muted)}
+textarea.err-field,input.err-field{border-color:var(--red)!important}
+/* PHOTO */
+.pzone{border:2px dashed var(--border);border-radius:8px;padding:15px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.pzone:hover{border-color:var(--a2);background:rgba(255,166,87,.04)}
+.pzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+#preview-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.pitem{position:relative;width:72px;height:72px;border-radius:7px;overflow:hidden;border:1px solid var(--border)}
+.pitem img{width:100%;height:100%;object-fit:cover}
+.pitem .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.72);color:#fff;border:none;border-radius:50%;width:17px;height:17px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* SUBMIT */
+.sbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--a2));border:none;border-radius:9px;color:#fff;font-family:'Sarabun',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.sbtn:hover{transform:translateY(-1px);box-shadow:0 5px 18px rgba(247,129,102,.3)}
+.sbtn:active{transform:none}
+.sbtn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+/* FIELD ERR */
+.ferr{font-size:11px;color:var(--red);margin-top:4px;display:none}.ferr.show{display:block}
+.req{color:var(--accent);margin-left:2px}
+/* STATUS BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-new{background:rgba(88,166,255,.18);color:var(--blue);border:1px solid rgba(88,166,255,.4)}
+.badge-inprogress{background:rgba(227,179,65,.18);color:var(--yellow);border:1px solid rgba(227,179,65,.4)}
+.badge-done{background:rgba(63,185,80,.18);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+.badge-hold{background:rgba(188,140,255,.18);color:var(--purple);border:1px solid rgba(188,140,255,.4)}
+/* DAY COUNTER */
+.day-badge{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;border-radius:4px;font-weight:600}
+.day-ok{background:rgba(63,185,80,.15);color:var(--green)}
+.day-warn{background:rgba(227,179,65,.18);color:var(--yellow)}
+.day-danger{background:rgba(255,107,107,.18);color:var(--red)}
+.day-critical{background:rgba(255,107,107,.3);color:#ff4444;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* MODAL */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;align-items:center;justify-content:center;padding:16px}
+.modal-ov.show{display:flex}
+.mbox{background:var(--surface);border-radius:13px;padding:22px 18px;max-width:420px;width:100%;text-align:center;animation:popIn .26s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popIn{from{transform:scale(.82);opacity:0}to{transform:scale(1);opacity:1}}
+.mbox.green{border:1px solid var(--green)}
+.mbox.blue{border:1px solid var(--blue)}
+.mbox.red{border:1px solid var(--red)}
+.circ{width:54px;height:54px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.circ.green{background:rgba(63,185,80,.12);border:2px solid var(--green)}
+.circ.blue{background:rgba(88,166,255,.12);border:2px solid var(--blue)}
+.mbox h2{font-size:16px;font-weight:700;margin-bottom:6px}
+.mbox p{font-size:12px;color:var(--muted);line-height:1.6}
+.stamp-box{margin:11px 0;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-align:left;line-height:1.8}
+.stamp-box .sv{color:var(--text);font-weight:600}
+.mbtn{padding:9px 22px;border:none;border-radius:7px;font-family:'Sarabun',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px}
+.mbtn.green{background:var(--green);color:#fff}
+.mbtn.blue{background:var(--blue);color:#fff}
+.mbtn.red{background:var(--red);color:#fff}
+.mbtn.gray{background:var(--s2);color:var(--text);border:1px solid var(--border)}
+/* LOGIN OVERLAY */
+.login-ov{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--surface);border:1px solid var(--blue);border-radius:13px;padding:28px 22px;max-width:320px;width:100%;text-align:center}
+.login-box h2{font-size:16px;font-weight:700;color:var(--blue);margin-bottom:5px}
+.login-box p{font-size:12px;color:var(--muted);margin-bottom:16px}
+/* CHART TAB */
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.sbox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 8px;text-align:center}
+.snum{font-size:21px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.slbl{font-size:10px;color:var(--muted);margin-top:2px}
+/* JOBS TABLE */
+.jtable{width:100%;border-collapse:collapse;font-size:12px}
+.jtable th{background:var(--s2);padding:8px 9px;text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)}
+.jtable td{padding:8px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.jtable tr:last-child td{border-bottom:none}
+.jtable tr:hover td{background:rgba(255,255,255,.02)}
+.tag-u{display:inline-block;background:rgba(88,166,255,.14);color:var(--blue);border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.tag-m{display:inline-block;background:rgba(247,129,102,.12);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:10px}
+.tag-sap{display:inline-block;background:rgba(227,179,65,.18);color:var(--yellow);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.tag-sap{display:inline-block;background:rgba(227,179,65,.18);color:var(--yellow);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.empty-s{text-align:center;padding:24px;color:var(--muted);font-size:13px}
+/* EXPORT BTN */
+.exp-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--s2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.exp-btn:hover{border-color:var(--blue);color:var(--blue)}
+/* FOCUS LINE LEGEND */
+.focus-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.fl-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.fl-dot{width:12px;height:3px;border-radius:2px}
+/* ASSIGNEE INPUT */
+.assignee-row{display:flex;gap:8px}
+.assignee-row input{flex:1}
+/* BACKUP SECTION */
+.backup-scroll{max-height:200px;overflow-y:auto;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;word-break:break-all}
+/* MANAGER VIEW */
+.manager-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.mc-header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.mc-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid rgba(48,54,61,.5);font-size:13px}
+.mc-row:last-child{border-bottom:none}
+.mc-label{color:var(--muted);font-size:11px;flex-shrink:0;width:90px}
+.mc-val{color:var(--text);font-weight:500;text-align:right;flex:1}
+.mc-img-row{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px}
+.mc-img{width:70px;height:70px;border-radius:6px;object-fit:cover;border:1px solid var(--border);cursor:pointer}
+.ovline{position:relative}
+canvas{display:block}
+/* NOTIFY TAB */
+.notify-wrap{max-width:500px;margin:0 auto;padding:16px 12px 50px;display:flex;flex-direction:column;gap:14px}
+.info-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.25);border-radius:8px;font-size:12px;color:var(--muted)}
+.info-row strong{color:var(--green)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hico">🔧</div>
+  <div><h1>แจ้งซ่อมเครื่องจักร</h1><p>Maintenance Request System</p></div>
+  <span id="live-time">--:--</span>
+</header>
+
+<div class="tabs">
+  <button class="tb active" onclick="switchTab('form',this)">📝 แจ้งซ่อม</button>
+  <button class="tb" onclick="switchTab('jobs',this)">📋 ติดตามงาน</button>
+  <button class="tb" onclick="switchTab('chart',this)">📊 กราฟ</button>
+  <button class="tb" onclick="switchTab('manager',this)">👔 สรุปทีม</button>
+  <button class="tb" onclick="switchTab('notify',this)">🔔 แจ้งเตือน</button>
+</div>
+
+<!-- ========== TAB: FORM ========== -->
+<div class="tc active" id="tab-form">
+<div class="wrap">
+
+  <!-- เครื่องจักร -->
+  <div class="card">
+    <div class="ch"><div class="sn">1</div><span class="t">ชื่อเครื่องจักร<span class="req">*</span></span></div>
+    <div class="cb">
+      <div class="mgrid" id="mgrid">
+        <div class="chip" data-val="Homo" onclick="selM(this)"><span class="ico">⚙️</span><span class="lbl">Homo</span></div>
+        <div class="chip" data-val="Filter" onclick="selM(this)"><span class="ico">🔵</span><span class="lbl">Filter</span></div>
+        <div class="chip" data-val="Valve" onclick="selM(this)"><span class="ico">🔩</span><span class="lbl">Valve</span></div>
+        <div class="chip" data-val="Pump" onclick="selM(this)"><span class="ico">💧</span><span class="lbl">Pump</span></div>
+        <div class="chip" data-val="Stacker" onclick="selM(this)"><span class="ico">📦</span><span class="lbl">Stacker</span></div>
+        <div class="chip" data-val="HMI" onclick="selM(this)"><span class="ico">🖥️</span><span class="lbl">HMI</span></div>
+        <div class="chip" data-val="Plate (PHE)" onclick="selM(this)"><span class="ico">🌡️</span><span class="lbl">Plate (PHE)</span></div>
+        <div class="chip" data-val="CIP Control" onclick="selM(this)"><span class="ico">🧹</span><span class="lbl">CIP Control</span></div>
+        <div class="chip" data-val="Debag" onclick="selM(this)"><span class="ico">🗃️</span><span class="lbl">Debag</span></div>
+        <div class="chip" data-val="Depallet" onclick="selM(this)"><span class="ico">🏗️</span><span class="lbl">Depallet</span></div>
+        <div class="chip" data-val="Tank" onclick="selM(this)"><span class="ico">🛢️</span><span class="lbl">Tank</span></div>
+        <div class="chip" data-val="MF Manifold" onclick="selM(this)"><span class="ico">🔬</span><span class="lbl">MF Manifold</span></div>
+        <div class="chip" data-val="Pipe" onclick="selM(this)"><span class="ico">〰️</span><span class="lbl">Pipe</span></div>
+        <div class="chip" data-val="Structure" onclick="selM(this)"><span class="ico">🏛️</span><span class="lbl">Structure</span></div>
+      </div>
+      <div class="ferr" id="ferr-m">กรุณาเลือกชื่อเครื่องจักร</div>
+    </div>
+  </div>
+
+  <!-- Unit -->
+  <div class="card">
+    <div class="ch"><div class="sn">2</div><span class="t">Unit<span class="req">*</span></span></div>
+    <div class="cb">
+      <div class="urow" id="urow">
+        <button class="ubtn" data-val="Mix 1" onclick="selU(this)">Mix 1</button>
+        <button class="ubtn" data-val="Mix 4" onclick="selU(this)">Mix 4</button>
+        <button class="ubtn" data-val="Mix 5" onclick="selU(this)">Mix 5</button>
+        <button class="ubtn" data-val="Mix 6" onclick="selU(this)">Mix 6</button>
+        <button class="ubtn" data-val="SMP Solution" onclick="selU(this)">SMP</button>
+        <button class="ubtn" data-val="Recovery" onclick="selU(this)">Recovery</button>
+      </div>
+      <div class="ferr" id="ferr-u">กรุณาเลือก Unit</div>
+    </div>
+  </div>
+
+  <!-- อาการ -->
+  <div class="card">
+    <div class="ch"><div class="sn">3</div><span class="t">อาการ / รายละเอียดปัญหา<span class="req">*</span></span></div>
+    <div class="cb">
+      <textarea id="symptom" placeholder="อธิบายอาการ เช่น เครื่องสั่น เสียงดัง ไม่ทำงาน น้ำรั่ว ..."></textarea>
+      <div class="ferr" id="ferr-s">กรุณาระบุอาการของเครื่องจักร</div>
+    </div>
+  </div>
+
+  <!-- ภาพ -->
+  <div class="card">
+    <div class="ch"><div class="sn">4</div><span class="t">ภาพประกอบ (ถ้ามี)</span></div>
+    <div class="cb">
+      <div class="pzone">
+        <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhoto(event)">
+        <div style="font-size:24px;margin-bottom:4px">📷</div>
+        <div style="font-size:13px;color:var(--muted)">แตะเพื่อเลือกรูป หรือถ่ายภาพ</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">JPG/PNG · สูงสุด 3 ภาพ · บีบอัดอัตโนมัติ</div>
+      </div>
+      <div id="preview-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ผู้แจ้ง -->
+  <div class="card">
+    <div class="ch"><div class="sn">5</div><span class="t">ชื่อผู้แจ้ง<span class="req">*</span></span></div>
+    <div class="cb">
+      <input type="text" id="sender" placeholder="ชื่อ-นามสกุล หรือรหัสพนักงาน">
+      <div class="ferr" id="ferr-n">กรุณากรอกชื่อผู้แจ้ง</div>
+    </div>
+  </div>
+
+  <button class="sbtn" id="sbtn" onclick="submitForm()">💾 บันทึกแจ้งซ่อม</button>
+
+  <!-- Backup viewer -->
+  <div class="card">
+    <div class="ch"><div class="sn" style="background:var(--muted)">💾</div><span class="t">ข้อมูล Backup (localStorage)</span></div>
+    <div class="cb" style="display:flex;flex-direction:column;gap:8px">
+      <div class="backup-scroll" id="backup-view">กำลังโหลด...</div>
+      <div style="display:flex;gap:8px">
+        <button class="exp-btn" onclick="exportJSON()">⬇️ Export JSON</button>
+        <button class="exp-btn" onclick="refreshBackup()">🔄 รีเฟรช</button>
+        <button class="exp-btn" style="color:var(--red);border-color:rgba(255,107,107,.3)" onclick="clearAll()">🗑️ ล้างข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ========== TAB: JOBS ========== -->
+<div class="tc" id="tab-jobs">
+<div class="wrap">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;color:var(--muted)">ติดตามสถานะงานซ่อมทั้งหมด · แก้ไขสถานะต้องใช้รหัส</div>
+    <button class="exp-btn" onclick="exportJobsCSV()">⬇️ Export CSV</button>
+  </div>
+
+  <!-- Filter -->
+  <div style="display:flex;gap:7px;flex-wrap:wrap">
+    <button class="ubtn sel" id="flt-all" onclick="filterJobs('all',this)" style="min-width:55px;font-size:11px;padding:7px 4px">ทั้งหมด</button>
+    <button class="ubtn" id="flt-new" onclick="filterJobs('new',this)" style="min-width:55px;font-size:11px;padding:7px 4px">รอดำเนินการ</button>
+    <button class="ubtn" id="flt-inprogress" onclick="filterJobs('inprogress',this)" style="min-width:55px;font-size:11px;padding:7px 4px">กำลังซ่อม</button>
+    <button class="ubtn" id="flt-done" onclick="filterJobs('done',this)" style="min-width:55px;font-size:11px;padding:7px 4px">เสร็จแล้ว</button>
+    <button class="ubtn" id="flt-hold" onclick="filterJobs('hold',this)" style="min-width:55px;font-size:11px;padding:7px 4px">รอชิ้นส่วน</button>
+  </div>
+
+  <div id="jobs-list"></div>
+</div>
+</div>
+
+<!-- ========== TAB: CHART ========== -->
+<div class="tc" id="tab-chart">
+<div class="wrap">
+
+  <div class="stat-row">
+    <div class="sbox"><div class="snum" id="st-total" style="color:var(--accent)">0</div><div class="slbl">รายการทั้งหมด</div></div>
+    <div class="sbox"><div class="snum" id="st-open" style="color:var(--blue)">0</div><div class="slbl">ค้างอยู่</div></div>
+    <div class="sbox"><div class="snum" id="st-done" style="color:var(--green)">0</div><div class="slbl">เสร็จแล้ว</div></div>
+  </div>
+
+  <!-- Monthly trend -->
+  <div class="card">
+    <div class="ch">📅 <span class="t" style="margin-left:4px">เทรนด์รายเดือน — Machine Life Focus</span></div>
+    <div class="cb">
+      <div class="focus-legend">
+        <div class="fl-item"><div class="fl-dot" style="background:var(--red)"></div>Critical (&gt;90 วัน)</div>
+        <div class="fl-item"><div class="fl-dot" style="background:var(--yellow)"></div>Warning (&gt;60 วัน)</div>
+        <div class="fl-item"><div class="fl-dot" style="background:var(--green)"></div>Normal</div>
+      </div>
+      <div id="no-monthly" class="empty-s">ยังไม่มีข้อมูล</div>
+      <canvas id="chart-monthly" style="display:none;max-height:280px"></canvas>
+    </div>
+  </div>
+
+  <!-- Machine bar -->
+  <div class="card">
+    <div class="ch">⚙️ <span class="t" style="margin-left:4px">แยกตามเครื่องจักร</span></div>
+    <div class="cb">
+      <div id="no-machine" class="empty-s">ยังไม่มีข้อมูล</div>
+      <canvas id="chart-machine" style="display:none;max-height:260px"></canvas>
+    </div>
+  </div>
+
+  <!-- Unit doughnut -->
+  <div class="card">
+    <div class="ch">🏭 <span class="t" style="margin-left:4px">แยกตาม Unit</span></div>
+    <div class="cb">
+      <div id="no-unit" class="empty-s">ยังไม่มีข้อมูล</div>
+      <canvas id="chart-unit" style="display:none;max-height:220px"></canvas>
+    </div>
+  </div>
+
+  <button class="exp-btn" style="width:100%;justify-content:center;padding:11px" onclick="exportChartPNG()">📥 Export กราฟเป็น PNG</button>
+
+</div>
+</div>
+
+<!-- ========== TAB: MANAGER ========== -->
+<div class="tc" id="tab-manager">
+<div class="wrap">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:15px;font-weight:700">📋 สรุปงานสำหรับหัวหน้าทีม</div>
+      <div style="font-size:11px;color:var(--muted)" id="mgr-updated">—</div>
+    </div>
+    <button class="exp-btn" onclick="exportManagerPDF()">📄 Export PDF</button>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="stat-row" id="mgr-stats">
+    <div class="sbox"><div class="snum" id="mgr-total" style="color:var(--accent)">0</div><div class="slbl">ทั้งหมด</div></div>
+    <div class="sbox"><div class="snum" id="mgr-open" style="color:var(--red)">0</div><div class="slbl">ค้างอยู่</div></div>
+    <div class="sbox"><div class="snum" id="mgr-critical" style="color:var(--red)">0</div><div class="slbl">&gt;30 วัน</div></div>
+  </div>
+
+  <!-- Critical jobs -->
+  <div class="card" id="mgr-critical-card">
+    <div class="ch" style="background:rgba(255,107,107,.1);border-bottom-color:rgba(255,107,107,.3)">
+      <span style="color:var(--red);font-size:13px;font-weight:700">🚨 งานค้างเกิน 30 วัน (ต้องดำเนินการด่วน)</span>
+    </div>
+    <div id="mgr-critical-list"><div class="empty-s">ไม่มีงานค้างเกิน 30 วัน 👍</div></div>
+  </div>
+
+  <!-- All jobs summary -->
+  <div class="card">
+    <div class="ch"><span class="t">รายการงานทั้งหมด</span></div>
+    <div style="overflow-x:auto">
+      <table class="jtable" id="mgr-table">
+        <thead><tr><th>Ref</th><th>Unit/เครื่อง</th><th>อาการ</th><th>ผู้แจ้ง</th><th>สถานะ</th><th>วันที่แจ้ง</th><th>วันค้าง</th></tr></thead>
+        <tbody id="mgr-tbody"><tr><td colspan="7"><div class="empty-s">ยังไม่มีข้อมูล</div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ========== TAB: NOTIFY ========== -->
+<div class="tc" id="tab-notify">
+<div class="notify-wrap">
+
+  <div class="card">
+    <div class="ch"><div class="sn" style="background:var(--green)">LINE</div><span class="t">LINE Messaging API — ผ่าน Google Apps Script</span></div>
+    <div class="cb" style="display:flex;flex-direction:column;gap:10px">
+
+      <!-- Step guide -->
+      <div style="background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.25);border-radius:8px;padding:12px 13px;font-size:12px;color:var(--muted);line-height:2">
+        <strong style="color:var(--green)">วิธีตั้งค่า (ทำครั้งเดียว)</strong><br>
+        1. ไปที่ <a href="https://script.google.com" target="_blank" style="color:var(--blue)">script.google.com</a> → เปิด Project ของท่าน<br>
+        2. ลบ code เดิมออก แล้ววางโค้ด GAS ที่ได้รับด้านล่างนี้ทั้งหมด<br>
+        3. กด Deploy → New deployment → Web app → Execute as: <strong style="color:var(--text)">Me</strong> → Who has access: <strong style="color:var(--text)">Anyone</strong><br>
+        4. คัดลอก URL ที่ได้มาวางช่องด้านล่าง<br>
+        5. ใส่ Group ID (Cxxxxxxx) ที่ได้จาก Webhook → กดบันทึก → ทดสอบ ✅
+      </div>
+
+      <!-- GAS code box -->
+      <div style="position:relative">
+        <div style="background:#1e1e2e;border-radius:8px;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a9b1d6;line-height:1.7;overflow-x:auto;white-space:pre">const CHANNEL_TOKEN = 'วาง_Channel_Access_Token_ที่นี่';
+const CLOUDINARY_CLOUD = 'ddizediks';
+const CLOUDINARY_PRESET = 'mix_repair';
+
+// อัปโหลดภาพขึ้น Cloudinary — ได้ direct URL ส่ง LINE ได้เลย
+function uploadToCloudinary(base64Data) {
+  const raw = base64Data.split(',')[1] || base64Data;
+  const res = UrlFetchApp.fetch(
+    'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload',
+    {
+      method: 'post',
+      payload: {
+        file: 'data:image/jpeg;base64,' + raw,
+        upload_preset: CLOUDINARY_PRESET
+      },
+      muteHttpExceptions: true
+    }
+  );
+  const json = JSON.parse(res.getContentText());
+  if (json.secure_url) return json.secure_url;
+  throw new Error('Cloudinary error: ' + JSON.stringify(json));
+}
+
+function sendToLine(to, messages) {
+  const payload = { to: to, messages: messages };
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + CHANNEL_TOKEN },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', options);
+  return JSON.parse(res.getContentText());
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const messages = [];
+
+    // 1) ข้อความหลัก
+    messages.push({ type: 'text', text: data.message });
+
+    // 2) ภาพ — อัปโหลดขึ้น Cloudinary แล้วส่ง URL ให้ LINE
+    if (data.photos && data.photos.length > 0) {
+      data.photos.forEach(function(b64) {
+        try {
+          const imgUrl = uploadToCloudinary(b64);
+          messages.push({
+            type: 'image',
+            originalContentUrl: imgUrl,
+            previewImageUrl: imgUrl
+          });
+          Logger.log('uploaded: ' + imgUrl);
+        } catch(imgErr) {
+          Logger.log('img error: ' + imgErr.message);
+        }
+      });
+    }
+
+    const result = sendToLine(data.to, messages);
+    Logger.log('LINE result: ' + JSON.stringify(result));
+    return ContentService
+      .createTextOutput(JSON.stringify(
+        result.message ? {status:'error',error:result.message} : {status:'ok'}
+      ))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    Logger.log('doPost error: ' + err.message);
+    return ContentService
+      .createTextOutput(JSON.stringify({status:'error',error:err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({status:'GAS LINE Proxy + Cloudinary ✅'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function testSend() {
+  const groupId = 'C694bb1d6f7e3c66acef88635991467d9';
+  const result = sendToLine(groupId, [{ type: 'text', text: '🧪 ทดสอบระบบแจ้งซ่อม + Cloudinary ✅' }]);
+  Logger.log(JSON.stringify(result));
+}</div>
+        <button onclick="copyGASCode()" style="position:absolute;top:8px;right:8px;padding:4px 10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:#e6edf3;font-size:11px;cursor:pointer">📋 คัดลอก</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--red);background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.25);border-radius:7px;padding:9px 12px">
+        ⚠️ อย่าลืมแทนที่ <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px">'วาง_Channel_Access_Token_ที่นี่'</code> ด้วย Token จริงใน GAS ก่อน Deploy
+      </div>
+
+      <input type="text" id="gas-url" placeholder="Google Apps Script URL (https://script.google.com/macros/s/...exec)">
+      <input type="text" id="line-uid" placeholder="Group ID (Cxxxxxxx) หรือ User ID (Uxxxxxxx)">
+      <button onclick="saveLineConfig()" style="padding:10px;background:var(--green);border:none;border-radius:8px;color:#fff;font-family:'Sarabun',sans-serif;font-size:14px;font-weight:600;cursor:pointer">💾 บันทึก</button>
+      <button onclick="testLine()" style="padding:9px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;cursor:pointer">🧪 ทดสอบส่ง LINE</button>
+      <div id="line-status" style="font-size:12px;color:var(--muted);text-align:center"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="sn" style="background:var(--yellow)">⏰</div><span class="t">แจ้งเตือนงานค้าง</span></div>
+    <div class="cb" style="font-size:12px;color:var(--muted);line-height:1.9">
+      ระบบจะแจ้งเตือนอัตโนมัติผ่าน LINE เมื่อ:<br>
+      🟡 งานค้าง <strong style="color:var(--yellow)">30 วัน</strong> — แจ้งเตือนครั้งแรก<br>
+      🟠 งานค้าง <strong style="color:var(--a2)">60 วัน</strong> — แจ้งเตือนระดับ Warning<br>
+      🔴 งานค้าง <strong style="color:var(--red)">90 วัน</strong> — แจ้งเตือนระดับ Critical<br><br>
+      <button onclick="checkOverdue()" style="padding:9px 16px;background:var(--s2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;cursor:pointer">🔍 ตรวจสอบงานค้างตอนนี้</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ====== SUCCESS MODAL ====== -->
+<div class="modal-ov" id="modal-ok">
+  <div class="mbox green">
+    <div class="circ green">✅</div>
+    <h2 style="color:var(--green)">บันทึกสำเร็จ!</h2>
+    <p>ส่งใบแจ้งซ่อมเรียบร้อยแล้ว</p>
+    <div class="stamp-box" id="stamp-box"></div>
+    <button class="mbtn green" onclick="closeModal('modal-ok')">รับทราบ</button>
+  </div>
+</div>
+
+<!-- ====== LOGIN MODAL ====== -->
+<div class="modal-ov" id="modal-login">
+  <div class="mbox blue" style="text-align:left">
+    <h2 style="color:var(--blue);text-align:center;margin-bottom:4px">🔐 ยืนยันตัวตน</h2>
+    <p style="text-align:center;margin-bottom:14px">ใส่รหัสผ่านเพื่อแก้ไขสถานะงาน</p>
+    <input type="password" id="login-pw" placeholder="รหัสผ่าน..." onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="login-err" style="font-size:11px;color:var(--red);margin-top:6px;display:none">รหัสผ่านไม่ถูกต้อง</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="mbtn blue" style="flex:1" onclick="doLogin()">เข้าสู่ระบบ</button>
+      <button class="mbtn gray" onclick="closeModal('modal-login')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STATUS MODAL ====== -->
+<div class="modal-ov" id="modal-status">
+  <div class="mbox blue" style="text-align:left">
+    <h2 style="color:var(--blue);margin-bottom:4px">✏️ เปลี่ยนสถานะงาน</h2>
+    <div id="status-ref-display" style="font-size:11px;color:var(--muted);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="setStatus('new')" class="sbtn" style="background:rgba(88,166,255,.2);color:var(--blue);font-size:13px;padding:10px">🔵 รอดำเนินการ</button>
+      <button onclick="setStatus('inprogress')" class="sbtn" style="background:rgba(227,179,65,.2);color:var(--yellow);font-size:13px;padding:10px">🟡 กำลังซ่อม</button>
+      <button onclick="setStatus('done')" class="sbtn" style="background:rgba(63,185,80,.2);color:var(--green);font-size:13px;padding:10px">✅ เสร็จแล้ว</button>
+      <button onclick="setStatus('hold')" class="sbtn" style="background:rgba(188,140,255,.2);color:var(--purple);font-size:13px;padding:10px">⏸️ รอชิ้นส่วน</button>
+    </div>
+    <button class="mbtn gray" style="width:100%;margin-top:10px" onclick="closeModal('modal-status')">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- ====== IMAGE VIEWER ====== -->
+<div class="modal-ov" id="modal-img" onclick="closeModal('modal-img')">
+  <img id="modal-img-src" style="max-width:95vw;max-height:90vh;border-radius:10px;object-fit:contain">
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+const PASS = '3179';
+let selMachine='', selUnit='', photoURLs=[];
+let loggedIn=false, pendingJobRef='';
+let cMonthly=null, cMachine=null, cUnit=null;
+let jobFilter='all';
+
+function loadHistory(){ return JSON.parse(localStorage.getItem('mx_v3')||'[]'); }
+function saveHistory(h){ localStorage.setItem('mx_v3',JSON.stringify(h)); }
+
+// ─────────────────────────────────────────
+// CLOCK
+// ─────────────────────────────────────────
+function tick(){ document.getElementById('live-time').textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+setInterval(tick,1000); tick();
+
+// ─────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────
+function switchTab(name,el){
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='jobs') renderJobs();
+  if(name==='chart') renderCharts();
+  if(name==='manager') renderManager();
+  if(name==='form') refreshBackup();
+}
+
+// ─────────────────────────────────────────
+// FORM
+// ─────────────────────────────────────────
+function selM(el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel'); selMachine=el.dataset.val;
+  document.getElementById('ferr-m').classList.remove('show');
+  el.classList.remove('err-field');
+}
+function selU(el){
+  document.querySelectorAll('.ubtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel'); selUnit=el.dataset.val;
+  document.getElementById('ferr-u').classList.remove('show');
+}
+function handlePhoto(e){
+  Array.from(e.target.files).slice(0,3-photoURLs.length).forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=800; let w=img.width,h=img.height;
+        if(w>h&&w>MAX){h=h*MAX/w;w=MAX;}else if(h>MAX){w=w*MAX/h;h=MAX;}
+        const c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        photoURLs.push(c.toDataURL('image/jpeg',.7));
+        renderPreviews();
+      };img.src=ev.target.result;
+    };r.readAsDataURL(f);
+  });e.target.value='';
+}
+function renderPreviews(){
+  const w=document.getElementById('preview-wrap');w.innerHTML='';
+  photoURLs.forEach((url,i)=>{
+    const d=document.createElement('div');d.className='pitem';
+    d.innerHTML=`<img src="${url}" onclick="viewImg('${url}')"><button class="del" onclick="rmPhoto(${i})">✕</button>`;
+    w.appendChild(d);
+  });
+}
+function rmPhoto(i){photoURLs.splice(i,1);renderPreviews();}
+function viewImg(url){ document.getElementById('modal-img-src').src=url; document.getElementById('modal-img').classList.add('show'); }
+
+function validate(){
+  let ok=true;
+  const checks=[
+    [!selMachine,'ferr-m'],
+    [!selUnit,'ferr-u'],
+    [!document.getElementById('symptom').value.trim(),'ferr-s'],
+    [!document.getElementById('sender').value.trim(),'ferr-n'],
+  ];
+  checks.forEach(([bad,id])=>{
+    if(bad){document.getElementById(id).classList.add('show');ok=false;}
+    else document.getElementById(id).classList.remove('show');
+  });
+  if(!ok){ const fe=document.querySelector('.ferr.show'); if(fe)fe.scrollIntoView({behavior:'smooth',block:'center'}); }
+  return ok;
+}
+
+function submitForm(){
+  if(!validate())return;
+  const now=new Date();
+  const dateKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const dateStr=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const ref='MR-'+now.getFullYear().toString().slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000)+1000);
+  const symptom=document.getElementById('symptom').value.trim();
+  const sender=document.getElementById('sender').value.trim();
+  const rec={ref,dateKey,dateStr,timeStr,unit:selUnit,machine:selMachine,symptom,sender,photos:[...photoURLs],status:'new',statusChangedAt:now.getTime(),ts:now.getTime()};
+  const h=loadHistory(); h.unshift(rec); saveHistory(h);
+  document.getElementById('stamp-box').innerHTML=
+    `<div>📌 <span class="sv">${ref}</span></div><div>📅 <span class="sv">${dateStr} ${timeStr}</span></div><div>🏭 <span class="sv">${selUnit}</span></div><div>⚙️ <span class="sv">${selMachine}</span></div><div>👤 <span class="sv">${sender}</span></div>`;
+  sendLine(rec);
+  refreshBackup();
+  document.getElementById('modal-ok').classList.add('show');
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+function resetForm(){
+  selMachine='';selUnit='';photoURLs=[];
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.ubtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('symptom').value='';
+  document.getElementById('sender').value='';
+  document.getElementById('preview-wrap').innerHTML='';
+  closeModal('modal-ok');
+}
+
+// Override close for modal-ok to also reset
+document.getElementById('modal-ok').querySelector('.mbtn').onclick=resetForm;
+
+// ─────────────────────────────────────────
+// BACKUP
+// ─────────────────────────────────────────
+function refreshBackup(){
+  const h=loadHistory();
+  const safe=h.map(r=>({...r,photos:r.photos?r.photos.map((_,i)=>`[ภาพ${i+1}]`):[]  }));
+  document.getElementById('backup-view').textContent=JSON.stringify(safe,null,2)||'(ว่าง)';
+}
+function exportJSON(){
+  const h=loadHistory();
+  const blob=new Blob([JSON.stringify(h,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`mx_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
+}
+function exportJobsCSV(){
+  const h=loadHistory();
+  if(!h.length){alert('ไม่มีข้อมูล');return;}
+  const rows=[['Ref','วันที่','Unit','เครื่องจักร','อาการ','ผู้แจ้ง','สถานะ','วันค้าง']];
+  h.forEach(r=>rows.push([r.ref,`${r.dateStr} ${r.timeStr}`,r.unit,r.machine,r.symptom,r.sender,statusLabel(r.status),calcDays(r.ts)]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`mx_jobs_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+// ─── SAP NTAP Data ───
+const SAP_NTAP = [{"ref": "SAP-1004583", "source": "SAP", "dateKey": "2026-04", "dateStr": "22/04/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "EM-CLBN", "symptom": "Temp gauge แตก", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1776816000000, "ts": 1776816000000}, {"ref": "SAP-1003385", "source": "SAP", "dateKey": "2025-12", "dateStr": "03/12/2568", "timeStr": "00:00:00", "unit": "STACKER LIFT MIXING", "machine": "EM-LOGI", "symptom": "STACKER LIFT NO.4 หน้าปัดเช็คแบตเสีย", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1764720000000, "ts": 1764720000000}, {"ref": "SAP-1004270", "source": "SAP", "dateKey": "2026-03", "dateStr": "20/03/2569", "timeStr": "00:00:00", "unit": "TANK MIXING", "machine": "EM-PROC", "symptom": "Motor 413 มีเสียงหลัง PM", "sender": "CHAITHAWAT P", "photos": [], "status": "inprogress", "statusChangedAt": 1773964800000, "ts": 1773964800000}, {"ref": "SAP-2003881", "source": "SAP", "dateKey": "2026-03", "dateStr": "23/03/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "น้ำหยดบนฝ้าเพด้าน mix4-5", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1774224000000, "ts": 1774224000000}, {"ref": "SAP-2004471", "source": "SAP", "dateKey": "2026-06", "dateStr": "02/06/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "แผ่นฝ้าริเวณ mix3  ชำรุด", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1780358400000, "ts": 1780358400000}, {"ref": "SAP-2004327", "source": "SAP", "dateKey": "2026-05", "dateStr": "15/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-CIVL", "symptom": "แจ้งซ่อมพื้นแตก บริเวณ T.01", "sender": "THANAWIN", "photos": [], "status": "inprogress", "statusChangedAt": 1778803200000, "ts": 1778803200000}, {"ref": "SAP-2004304", "source": "SAP", "dateKey": "2026-05", "dateStr": "13/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "ทำไม้พายจำนวน 2 ด้าม", "sender": "AROON M.", "photos": [], "status": "inprogress", "statusChangedAt": 1778630400000, "ts": 1778630400000}, {"ref": "SAP-2004309", "source": "SAP", "dateKey": "2026-05", "dateStr": "14/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "ปิดช่อง Gap บริเวณฝาท่อใต้ T.335", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1778716800000, "ts": 1778716800000}, {"ref": "SAP-2004272", "source": "SAP", "dateKey": "2026-05", "dateStr": "11/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "พื้นบริเวณข้าง Tank321 ชำรุด", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1778457600000, "ts": 1778457600000}, {"ref": "SAP-2000005", "source": "SAP", "dateKey": "2025-02", "dateStr": "03/02/2568", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-CIVL", "symptom": "ทำถาดรองน้ำหยด ทางเดินห้องมิก", "sender": "CHAITHAWAT P", "photos": [], "status": "inprogress", "statusChangedAt": 1738540800000, "ts": 1738540800000}, {"ref": "SAP-2004231", "source": "SAP", "dateKey": "2026-05", "dateStr": "07/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-ELEC", "symptom": "ไฟแสงสว่าง MIX4", "sender": "SUPRAKARN", "photos": [], "status": "inprogress", "statusChangedAt": 1778112000000, "ts": 1778112000000}, {"ref": "SAP-2004437", "source": "SAP", "dateKey": "2026-05", "dateStr": "28/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-WELD", "symptom": "ติดแผนสแตนเลตบนT.321,322,323", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1779926400000, "ts": 1779926400000}, {"ref": "SAP-2004386", "source": "SAP", "dateKey": "2026-05", "dateStr": "21/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-ELEC", "symptom": "ไฟแสงสว่างใต้ Stage หน้า Tank 327 ไม่ติด", "sender": "PRASALAB", "photos": [], "status": "inprogress", "statusChangedAt": 1779321600000, "ts": 1779321600000}, {"ref": "SAP-2004467", "source": "SAP", "dateKey": "2026-05", "dateStr": "30/05/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-CIVL", "symptom": "น็อตยึดปลั๊กไฟฉุกเฉินหลุดชำรุด", "sender": "PRASALAB", "photos": [], "status": "inprogress", "statusChangedAt": 1780099200000, "ts": 1780099200000}, {"ref": "SAP-2004170", "source": "SAP", "dateKey": "2026-04", "dateStr": "30/04/2569", "timeStr": "00:00:00", "unit": "MIXING 1,2,4", "machine": "ER-CIVL", "symptom": "ฝาผนังโซน SOLUTION ชำรุด", "sender": "PRASALAB", "photos": [], "status": "inprogress", "statusChangedAt": 1777507200000, "ts": 1777507200000}, {"ref": "SAP-2004473", "source": "SAP", "dateKey": "2026-06", "dateStr": "02/06/2569", "timeStr": "00:00:00", "unit": "MIXING 5", "machine": "ER-ELEC", "symptom": "ไฟแสงสว่าง LED MIX5 ชำรุด", "sender": "CHAITHAWAT P", "photos": [], "status": "inprogress", "statusChangedAt": 1780358400000, "ts": 1780358400000}, {"ref": "SAP-2004140", "source": "SAP", "dateKey": "2026-04", "dateStr": "25/04/2569", "timeStr": "00:00:00", "unit": "MIXING 5", "machine": "ER-WELD", "symptom": "ติดตั้งพัดลมบริเวณ MIX6", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1777075200000, "ts": 1777075200000}, {"ref": "SAP-2004443", "source": "SAP", "dateKey": "2026-05", "dateStr": "29/05/2569", "timeStr": "00:00:00", "unit": "MIXING 5", "machine": "ER-ELEC", "symptom": "ทำตะกร้าวางไว้ใต้ Stage Mix6", "sender": "CHAITHAWAT P", "photos": [], "status": "inprogress", "statusChangedAt": 1780012800000, "ts": 1780012800000}, {"ref": "SAP-2002156", "source": "SAP", "dateKey": "2025-09", "dateStr": "09/09/2568", "timeStr": "00:00:00", "unit": "MIXING 5", "machine": "ER-WELD", "symptom": "ติดพัดลมระบายอากาศช่องทิ้งขยะ mix โรงงาน", "sender": "KRITSADA.P", "photos": [], "status": "inprogress", "statusChangedAt": 1757376000000, "ts": 1757376000000}, {"ref": "SAP-2004428", "source": "SAP", "dateKey": "2026-05", "dateStr": "27/05/2569", "timeStr": "00:00:00", "unit": "MIXING 6", "machine": "-", "symptom": "แอร์ออฟฟิศ Mix6 น้ำหยด", "sender": "SIWAPORN P.", "photos": [], "status": "inprogress", "statusChangedAt": 1779840000000, "ts": 1779840000000}, {"ref": "SAP-2003530", "source": "SAP", "dateKey": "2026-02", "dateStr": "13/02/2569", "timeStr": "00:00:00", "unit": "SMP Dissoving Line", "machine": "ER-CIVL", "symptom": "ติดกันชนผนังและซ่อมพื้นทางเดินหน้าSMPSOL", "sender": "SIWAPORN P.", "photos": [], "status": "inprogress", "statusChangedAt": 1770940800000, "ts": 1770940800000}, {"ref": "SAP-2003595", "source": "SAP", "dateKey": "2026-02", "dateStr": "24/02/2569", "timeStr": "00:00:00", "unit": "INSTRUMENT SMP Dissoving Line", "machine": "ER-WELD", "symptom": "แอร์ห้องปาด SMP Solution อุณหภูมิสูง", "sender": "SIWAPORN P.", "photos": [], "status": "inprogress", "statusChangedAt": 1771891200000, "ts": 1771891200000}, {"ref": "SAP-2004363", "source": "SAP", "dateKey": "2026-05", "dateStr": "19/05/2569", "timeStr": "00:00:00", "unit": "TANK MIXING", "machine": "ER-CIVL", "symptom": "หลอดไฟแสงสว่างเหนือ RecoT.330ขาด1หลอด", "sender": "SOMPOPOM", "photos": [], "status": "inprogress", "statusChangedAt": 1779148800000, "ts": 1779148800000}];
+
+function importSAP(){
+  if(!loggedIn){
+    pendingJobRef='__sap__';
+    document.getElementById('login-pw').value='';
+    document.getElementById('login-err').style.display='none';
+    document.getElementById('modal-login').classList.add('show');
+    setTimeout(()=>document.getElementById('login-pw').focus(),200);
+    return;
+  }
+  doImportSAP();
+}
+
+function doImportSAP(){
+  const h=loadHistory();
+  const existingRefs=new Set(h.map(r=>r.ref));
+  const toAdd=SAP_NTAP.filter(r=>!existingRefs.has(r.ref));
+  if(!toAdd.length){alert('ข้อมูล SAP NTAP นำเข้าแล้วทั้งหมด ไม่มีรายการใหม่');return;}
+  const merged=[...toAdd,...h];
+  saveHistory(merged);
+  refreshBackup();
+  alert('นำเข้า SAP NTAP สำเร็จ '+toAdd.length+' รายการ\n(ข้ามที่มีอยู่แล้ว '+(SAP_NTAP.length-toAdd.length)+' รายการ)');
+  renderJobs();
+}
+
+function clearAll(){
+  if(!loggedIn){
+    pendingJobRef='__clear__';
+    document.getElementById('login-pw').value='';
+    document.getElementById('login-err').style.display='none';
+    document.getElementById('modal-login').classList.add('show');
+    setTimeout(()=>document.getElementById('login-pw').focus(),200);
+    return;
+  }
+  if(confirm('ลบข้อมูลทั้งหมดใช่ไหม? ไม่สามารถกู้คืนได้')){
+    localStorage.removeItem('mx_v3');
+    refreshBackup();
+    alert('ล้างข้อมูลแล้ว');
+  }
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  refreshBackup();
+  const t=localStorage.getItem('mx_line_token');
+  const u=localStorage.getItem('mx_line_uid');
+  if(t) document.getElementById('line-token').value=t;
+  if(u) document.getElementById('line-uid').value=u;
+});
+
+// ─────────────────────────────────────────
+// STATUS & DAYS
+// ─────────────────────────────────────────
+function calcDays(ts){ return Math.floor((Date.now()-ts)/86400000); }
+function statusLabel(s){ return {new:'รอดำเนินการ',inprogress:'กำลังซ่อม',done:'เสร็จแล้ว',hold:'รอชิ้นส่วน'}[s]||s; }
+function statusBadge(s){
+  const map={new:'badge-new',inprogress:'badge-inprogress',done:'badge-done',hold:'badge-hold'};
+  return `<span class="badge ${map[s]||'badge-new'}">${statusLabel(s)}</span>`;
+}
+function dayBadge(ts,status){
+  if(status==='done') return `<span class="day-badge day-ok">เสร็จ</span>`;
+  const d=calcDays(ts);
+  if(d>=90) return `<span class="day-badge day-critical">${d} วัน 🚨</span>`;
+  if(d>=60) return `<span class="day-badge day-danger">${d} วัน ⚠️</span>`;
+  if(d>=30) return `<span class="day-badge day-warn">${d} วัน</span>`;
+  return `<span class="day-badge day-ok">${d} วัน</span>`;
+}
+
+// ─────────────────────────────────────────
+// JOBS TAB
+// ─────────────────────────────────────────
+function filterJobs(type,el){
+  jobFilter=type;
+  document.querySelectorAll('#tab-jobs .ubtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  renderJobs();
+}
+function renderJobs(){
+  const h=loadHistory();
+  let list=jobFilter==='all'?h:h.filter(r=>r.status===jobFilter);
+  const cont=document.getElementById('jobs-list');
+  if(!list.length){cont.innerHTML=`<div class="empty-s">ไม่มีรายการ</div>`;return;}
+  cont.innerHTML=list.map(r=>`
+  <div class="manager-card" style="margin-bottom:0">
+    <div class="mc-header">
+      <div>
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--accent)">${r.ref} ${r.source==='SAP'?'<span class="tag-sap">SAP</span>':''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:1px">${r.dateStr} ${r.timeStr}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${statusBadge(r.status)}
+        ${dayBadge(r.ts,r.status)}
+      </div>
+    </div>
+    <div class="mc-row"><span class="mc-label">Unit / เครื่อง</span><span class="mc-val"><span class="tag-u">${r.unit}</span> <span class="tag-m">${r.machine}</span></span></div>
+    <div class="mc-row"><span class="mc-label">อาการ</span><span class="mc-val" style="font-size:12px">${r.symptom}</span></div>
+    <div class="mc-row"><span class="mc-label">ผู้แจ้ง</span><span class="mc-val">${r.sender}</span></div>
+    ${r.photos&&r.photos.length?`<div class="mc-img-row">${r.photos.map(p=>`<img class="mc-img" src="${p}" onclick="viewImg('${p}')">`).join('')}</div>`:''}
+    <div style="padding:8px 12px;border-top:1px solid var(--border)">
+      <button onclick="openStatusModal('${r.ref}')" style="width:100%;padding:9px;background:var(--s2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;font-weight:600;cursor:pointer">✏️ เปลี่ยนสถานะ (ต้องใช้รหัส)</button>
+    </div>
+  </div>`).join('<div style="height:8px"></div>');
+}
+
+// ─────────────────────────────────────────
+// LOGIN & STATUS CHANGE
+// ─────────────────────────────────────────
+function openStatusModal(ref){
+  pendingJobRef=ref;
+  if(loggedIn){ showStatusModal(); return; }
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').style.display='none';
+  document.getElementById('modal-login').classList.add('show');
+  setTimeout(()=>document.getElementById('login-pw').focus(),200);
+}
+function doLogin(){
+  const pw=document.getElementById('login-pw').value;
+  if(pw===PASS){
+    loggedIn=true;
+    closeModal('modal-login');
+    if(pendingJobRef==='__sap__'){
+      doImportSAP();
+      pendingJobRef='';
+    } else if(pendingJobRef==='__clear__'){
+      if(confirm('ลบข้อมูลทั้งหมดใช่ไหม? ไม่สามารถกู้คืนได้')){
+        localStorage.removeItem('mx_v3');
+        refreshBackup();
+        alert('ล้างข้อมูลแล้ว');
+      }
+      pendingJobRef='';
+    } else {
+      showStatusModal();
+    }
+    setTimeout(()=>{loggedIn=false;},300000);
+  } else {
+    document.getElementById('login-err').style.display='block';
+    document.getElementById('login-pw').value='';
+  }
+}
+function showStatusModal(){
+  document.getElementById('status-ref-display').textContent='Ref: '+pendingJobRef;
+  document.getElementById('modal-status').classList.add('show');
+}
+function setStatus(newStatus){
+  const h=loadHistory();
+  const idx=h.findIndex(r=>r.ref===pendingJobRef);
+  if(idx>=0){
+    h[idx].status=newStatus;
+    h[idx].statusChangedAt=Date.now();
+    saveHistory(h);
+  }
+  closeModal('modal-status');
+  renderJobs();
+  refreshBackup();
+}
+
+// ─────────────────────────────────────────
+// CHARTS
+// ─────────────────────────────────────────
+const COLORS=['#f78166','#ffa657','#58a6ff','#3fb950','#bc8cff','#ff7b72','#79c0ff','#d2a8ff','#56d364','#e3b341','#f0883e','#a5d6ff','#ffb3a7','#b3d9ff'];
+
+function renderCharts(){
+  const h=loadHistory();
+  const total=h.length;
+  const open=h.filter(r=>r.status!=='done').length;
+  const done=h.filter(r=>r.status==='done').length;
+  document.getElementById('st-total').textContent=total;
+  document.getElementById('st-open').textContent=open;
+  document.getElementById('st-done').textContent=done;
+  if(!total) return;
+
+  // Monthly trend
+  const mMap={};
+  h.forEach(r=>{ const k=r.dateKey||'Unknown'; if(!mMap[k])mMap[k]={total:0,done:0,overdue:0}; mMap[k].total++; if(r.status==='done')mMap[k].done++; if(calcDays(r.ts)>90&&r.status!=='done')mMap[k].overdue++; });
+  const mKeys=Object.keys(mMap).sort();
+  if(mKeys.length){
+    document.getElementById('no-monthly').style.display='none';
+    const el=document.getElementById('chart-monthly'); el.style.display='block';
+    if(cMonthly)cMonthly.destroy();
+    cMonthly=new Chart(el,{
+      type:'bar',
+      data:{
+        labels:mKeys,
+        datasets:[
+          {label:'แจ้งซ่อมทั้งหมด',data:mKeys.map(k=>mMap[k].total),backgroundColor:'rgba(88,166,255,.7)',borderRadius:5},
+          {label:'เสร็จแล้ว',data:mKeys.map(k=>mMap[k].done),backgroundColor:'rgba(63,185,80,.7)',borderRadius:5},
+          {label:'เกิน 90 วัน (Critical)',data:mKeys.map(k=>mMap[k].overdue),backgroundColor:'rgba(255,107,107,.8)',borderRadius:5},
+        ]
+      },
+      options:{
+        plugins:{
+          legend:{labels:{color:'#e6edf3',font:{size:10}}},
+          annotation:{
+            annotations:{
+              line30:{type:'line',yMin:3,yMax:3,borderColor:'rgba(227,179,65,.6)',borderWidth:1,borderDash:[5,4],label:{content:'Focus Zone',enabled:true,color:'#e3b341',font:{size:9}}},
+            }
+          }
+        },
+        scales:{
+          x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(48,54,61,.5)'}},
+          y:{ticks:{color:'#8b949e',stepSize:1},grid:{color:'rgba(48,54,61,.5)'}},
+        },
+        responsive:true,
+      }
+    });
+  }
+
+  // Machine bar
+  const mC={};
+  h.forEach(r=>{mC[r.machine]=(mC[r.machine]||0)+1;});
+  const mK=Object.keys(mC).sort((a,b)=>mC[b]-mC[a]);
+  document.getElementById('no-machine').style.display='none';
+  const el2=document.getElementById('chart-machine'); el2.style.display='block';
+  if(cMachine)cMachine.destroy();
+  // Color bars by frequency (top 3 = red warning)
+  const barColors=mK.map((k,i)=>i<3?'rgba(255,107,107,.8)':'rgba(88,166,255,.7)');
+  cMachine=new Chart(el2,{type:'bar',data:{labels:mK,datasets:[{data:mK.map(k=>mC[k]),backgroundColor:barColors,borderRadius:5,borderSkipped:false}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',stepSize:1},grid:{color:'rgba(48,54,61,.5)'}},y:{ticks:{color:'#e6edf3',font:{size:11}},grid:{display:false}}}}});
+
+  // Unit doughnut
+  const uC={};
+  h.forEach(r=>{uC[r.unit]=(uC[r.unit]||0)+1;});
+  const uK=Object.keys(uC).sort((a,b)=>uC[b]-uC[a]);
+  document.getElementById('no-unit').style.display='none';
+  const el3=document.getElementById('chart-unit'); el3.style.display='block';
+  if(cUnit)cUnit.destroy();
+  cUnit=new Chart(el3,{type:'doughnut',data:{labels:uK,datasets:[{data:uK.map(k=>uC[k]),backgroundColor:COLORS.slice(0,uK.length),borderWidth:2,borderColor:'#161b22'}]},options:{plugins:{legend:{position:'right',labels:{color:'#e6edf3',font:{size:11},padding:10}}},cutout:'58%'}});
+}
+
+function exportChartPNG(){
+  const canvases=['chart-monthly','chart-machine','chart-unit'].map(id=>document.getElementById(id)).filter(c=>c&&c.style.display!=='none');
+  if(!canvases.length){alert('ยังไม่มีกราฟ');return;}
+  // Combine canvases vertically
+  const totalH=canvases.reduce((s,c)=>s+c.height,0)+canvases.length*10;
+  const combo=document.createElement('canvas');
+  combo.width=Math.max(...canvases.map(c=>c.width));
+  combo.height=totalH+40;
+  const ctx=combo.getContext('2d');
+  ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,combo.width,combo.height);
+  ctx.fillStyle='#e6edf3'; ctx.font='bold 14px sans-serif'; ctx.fillText('Maintenance Report — '+new Date().toLocaleDateString('th-TH'),12,22);
+  let y=36;
+  canvases.forEach(c=>{ ctx.drawImage(c,0,y); y+=c.height+10; });
+  const a=document.createElement('a'); a.href=combo.toDataURL('image/png'); a.download=`mx_chart_${new Date().toISOString().slice(0,10)}.png`; a.click();
+}
+
+// ─────────────────────────────────────────
+// MANAGER TAB
+// ─────────────────────────────────────────
+function renderManager(){
+  const h=loadHistory();
+  document.getElementById('mgr-updated').textContent='อัปเดต: '+new Date().toLocaleString('th-TH');
+  document.getElementById('mgr-total').textContent=h.length;
+  const open=h.filter(r=>r.status!=='done');
+  document.getElementById('mgr-open').textContent=open.length;
+  const crit=h.filter(r=>r.status!=='done'&&calcDays(r.ts)>=30);
+  document.getElementById('mgr-critical').textContent=crit.length;
+
+  // Critical list
+  const cl=document.getElementById('mgr-critical-list');
+  if(!crit.length){cl.innerHTML=`<div class="empty-s">ไม่มีงานค้างเกิน 30 วัน 👍</div>`;}
+  else{
+    cl.innerHTML=crit.sort((a,b)=>a.ts-b.ts).map(r=>`
+    <div class="mc-row" style="flex-wrap:wrap;gap:6px">
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--accent)">${r.ref} ${r.source==='SAP'?'<span class="tag-sap">SAP</span>':''}</div>
+        <div style="font-size:12px;font-weight:600">${r.unit} / ${r.machine}</div>
+        <div style="font-size:11px;color:var(--muted)">${r.symptom.slice(0,60)}${r.symptom.length>60?'…':''}</div>
+        <div style="font-size:11px;color:var(--muted)">ผู้แจ้ง: ${r.sender}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${dayBadge(r.ts,r.status)}
+        ${statusBadge(r.status)}
+      </div>
+    </div>`).join('');
+  }
+
+  // Full table
+  const tb=document.getElementById('mgr-tbody');
+  if(!h.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty-s">ยังไม่มีข้อมูล</div></td></tr>`;return;}
+  tb.innerHTML=h.map(r=>`<tr>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);white-space:nowrap">${r.ref}</td>
+    <td><span class="tag-u">${r.unit}</span><br><span class="tag-m">${r.machine}</span></td>
+    <td style="font-size:11px;color:var(--muted);max-width:140px">${r.symptom.slice(0,50)}${r.symptom.length>50?'…':''}</td>
+    <td style="font-size:11px">${r.sender}</td>
+    <td>${statusBadge(r.status)}</td>
+    <td style="font-size:10px;white-space:nowrap;color:var(--muted)">${r.dateStr}</td>
+    <td>${dayBadge(r.ts,r.status)}</td>
+  </tr>`).join('');
+}
+
+function exportManagerPDF(){
+  window.print();
+}
+
+// ─────────────────────────────────────────
+// LINE MESSAGING API
+// ─────────────────────────────────────────
+function saveLineConfig(){
+  const g=document.getElementById('gas-url').value.trim();
+  const u=document.getElementById('line-uid').value.trim();
+  if(!g||!u){ document.getElementById('line-status').innerHTML='<span style="color:var(--red)">⚠️ กรุณากรอก GAS URL และ Group ID ให้ครบ</span>'; return; }
+  localStorage.setItem('mx_gas_url',g);
+  localStorage.setItem('mx_line_uid',u);
+  document.getElementById('line-status').innerHTML='<span style="color:var(--green)">✅ บันทึกเรียบร้อย</span>';
+}
+
+function copyGASCode(){
+  const el=document.querySelector('#tab-notify [style*="1e1e2e"]');
+  if(!el){alert('ไม่พบ code box');return;}
+  navigator.clipboard.writeText(el.innerText).then(()=>alert('คัดลอกแล้ว! นำไปวางใน Google Apps Script ได้เลย')).catch(()=>alert('กด Ctrl+A แล้ว Ctrl+C ใน code box แทนครับ'));
+}
+
+// ส่งผ่าน Google Apps Script backend (แก้ CORS)
+async function sendLine(rec){
+  const gasUrl=localStorage.getItem("mx_gas_url");
+  const uid=localStorage.getItem("mx_line_uid");
+  if(!gasUrl||!uid){console.warn("LINE: ยังไม่ได้ตั้งค่า GAS URL หรือ Group ID");return;}
+  const msg=`🔧 แจ้งซ่อมเครื่องจักร\n📌 ${rec.ref}\n🏭 Unit: ${rec.unit}\n⚙️ เครื่อง: ${rec.machine}\n❗ อาการ: ${rec.symptom}\n👤 ผู้แจ้ง: ${rec.sender}\n🕐 ${rec.dateStr} ${rec.timeStr}`;
+  try{
+    const res=await fetch(gasUrl,{
+      method:"POST",
+      headers:{"Content-Type":"text/plain"},
+      body:JSON.stringify({to:uid,message:msg,photos:rec.photos})
+    });
+    const json=await res.json();
+    if(json.status==="ok") console.log("LINE sent ✅");
+    else console.warn("LINE GAS error:",json);
+  }catch(e){console.warn("LINE send error:",e);}
+}
+
+async function testLine(){
+  const gasUrl=localStorage.getItem('mx_gas_url');
+  const uid=localStorage.getItem('mx_line_uid');
+  if(!gasUrl||!uid){alert('กรุณาบันทึก GAS URL และ Group ID ก่อน');return;}
+  document.getElementById('line-status').innerHTML='<span style="color:var(--muted)">⏳ กำลังส่ง...</span>';
+  const msg=`🧪 ทดสอบระบบแจ้งเตือน\n✅ เชื่อมต่อสำเร็จ\n🕐 ${new Date().toLocaleString('th-TH')}`;
+  try{
+    const res=await fetch(gasUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({to:uid,message:msg})});
+    const json=await res.json();
+    if(json.status==='ok') document.getElementById('line-status').innerHTML='<span style="color:var(--green)">✅ ส่งสำเร็จ! ตรวจสอบ LINE ได้เลย</span>';
+    else document.getElementById('line-status').innerHTML=`<span style="color:var(--red)">❌ Error: ${json.error||'unknown'}</span>`;
+  }catch(e){document.getElementById('line-status').innerHTML=`<span style="color:var(--red)">❌ ${e.message}</span>`;}
+}
+
+// ─────────────────────────────────────────
+// OVERDUE CHECK & NOTIFY
+// ─────────────────────────────────────────
+function checkOverdue(){
+  const h=loadHistory();
+  const token=localStorage.getItem('mx_line_token');
+  const uid=localStorage.getItem('mx_line_uid');
+  const open=h.filter(r=>r.status!=='done');
+  const d30=open.filter(r=>calcDays(r.ts)>=30&&calcDays(r.ts)<60);
+  const d60=open.filter(r=>calcDays(r.ts)>=60&&calcDays(r.ts)<90);
+  const d90=open.filter(r=>calcDays(r.ts)>=90);
+  let msg='🔍 รายงานงานค้าง\n';
+  if(!d30.length&&!d60.length&&!d90.length){ msg+='✅ ไม่มีงานค้างเกิน 30 วัน'; }
+  else{
+    if(d90.length) msg+=`\n🚨 Critical (>90วัน): ${d90.length} งาน\n`+d90.map(r=>`  • ${r.ref} ${r.machine} — ${r.sender}`).join('\n');
+    if(d60.length) msg+=`\n⚠️ Warning (60-90วัน): ${d60.length} งาน\n`+d60.map(r=>`  • ${r.ref} ${r.machine} — ${r.sender}`).join('\n');
+    if(d30.length) msg+=`\n🟡 ติดตาม (30-60วัน): ${d30.length} งาน\n`+d30.map(r=>`  • ${r.ref} ${r.machine} — ${r.sender}`).join('\n');
+  }
+  const gasUrl=localStorage.getItem('mx_gas_url');
+  if(gasUrl&&uid){
+    fetch(gasUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({to:uid,message:msg})}).catch(()=>{});
+    document.getElementById('line-status').innerHTML='<span style="color:var(--green)">✅ ส่งรายงานไปแล้ว</span>';
+  }
+  alert(msg);
+}
+
+
+</script>
+</body>
+</html>
